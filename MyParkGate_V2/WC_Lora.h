@@ -8,8 +8,6 @@
 //#include <LoRa.h>           //https://github.com/sandeepmistry/arduino-LoRa set via library mamager 
 //#include <heltec.h>         //https://github.com/HelTecAutomation/Heltec_ESP32
 #include <LoRaWan_APP.h>
-#include <IRremoteESP8266.h>
-#include <IRsend.h>
 
 
 #include <MyLoRaBase.h>
@@ -63,7 +61,7 @@ void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr );
 void OnRxTimeout( void );
 void OnTxTimeout( void );
 void OnRxError( void );
-void SendIR(uint16_t _num);
+
 
 
 #endif

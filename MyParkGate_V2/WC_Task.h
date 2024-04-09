@@ -16,6 +16,8 @@
 
 #include <HTTPClient.h>
 #include <time.h>
+#include <IRremoteESP8266.h>
+#include <IRsend.h>
 
 
 
@@ -39,7 +41,9 @@ void listDir(const char *dirname, uint8_t levels = 0);
 void taskButton1(void *pvParameters);
 void taskNeopixel(void *pvParameters);
 void startNeopixel();
-
+void SendIR(uint16_t _num);
+void InitIR();
+void SetSemaphoreIR(bool flag);
 
 
 #endif

@@ -17,6 +17,10 @@ char _lora_node[16];
 float _lora_vbat = 0, _lora_dist = 0, _lora_rssi = 0;
 uint32_t _lora_tm = 0;
 int wifiRssi = 0;
+uint32_t msIR = 0;
+uint16_t numIR = 0xffff;
+uint16_t saveNum = 0xffff;
+
 uint32_t msBtn    = 0;
 uint16_t countBtn = 0;
 Adafruit_NeoPixel pixels(NUM_NEOPIXEL, PIN_NEOPIXEL, NEO_GRB+NEO_KHZ800);
@@ -28,9 +32,10 @@ EthernetUDP ntpUDP;
 WiFiUDP ntpUDP;
 #endif
 NTPClient ntpClient(ntpUDP);
+IRsend irsend1(PIN_IR_SEND);
 
 SButton btn1( PIN_BTN );
-SemaphoreHandle_t btn1Semaphore, displaySemaphore, loraMutex;
+SemaphoreHandle_t btn1Semaphore, displaySemaphore, loraMutex, SemaphoreIR;
 
 
 
@@ -56,8 +61,10 @@ void tasksStart(){
    }
 #endif     
    attributesRead();
+
    j_servers.clear();
    nodesRead();
+   InitIR();   
    startNeopixel();
 //   pixels.begin();
 //   pixels.clear(); // Set all pixel colors to 'off'
@@ -170,13 +177,17 @@ void taskWiFi( void *pvParameters ){
        
 // Проверка очереди отправки на сервер
         if( isConnectStatus && !JHttp.q_msg.empty() ){
+          SetSemaphoreIR(true);
           httpSend();
+          SetSemaphoreIR(false);
         }      
         count++;
 
 // Каждые 60 секунд проверяем время
        if( _ms2 == 0 || _ms2 > _ms || ( _ms - _ms2 ) > 10000 ){
            _ms2 = _ms;
+           SetSemaphoreIR(true);
+
            if( isConnectStatus ){
                if( !isNTP ){
                    ntpClient.begin();
@@ -186,6 +197,7 @@ void taskWiFi( void *pvParameters ){
 //               Serial.print(F("!!! NTP time: "));
 //               Serial.println(ntpClient.getEpochTime());
            }
+           SetSemaphoreIR(false);
        }
 
        
@@ -400,6 +412,7 @@ void taskNeopixel( void *pvParameters ){
    Serial.println("Start Led Task");
    while(true){
 #if defined(PIN_NEOPIXEL) && defined(NUM_NEOPIXEL)
+      SetSemaphoreIR(true);
       uint32_t _ms = millis();      
       for( int i=1; i<=JNodes.countNodeAll && i<NUM_NEOPIXEL;i++){
          if( JNodes.nodesStatus[i] == NLS_NONE ){
@@ -435,7 +448,7 @@ void taskNeopixel( void *pvParameters ){
          }
       }
        pixels.show();
-
+      SetSemaphoreIR(false);
       vTaskDelay(1000);
 #else
       vTaskDelay(300000);
@@ -507,3 +520,62 @@ void listDir(const char * dirname, uint8_t levels){
  @param _text - Текст
  @param _row - Строка 
 */
+
+
+void InitIR(){
+   Serial.println(F("!!!! Init IR"));
+   irsend1.begin();
+   SemaphoreIR    = xSemaphoreCreateMutex();
+//   SendIR(0);
+
+//   xSemaphoreTake( SemaphoreIR, 100 );
+}
+
+void SendIR(uint16_t _num){
+  uint32_t ms = millis();
+   if( ms - msIR < 2000 )return;
+   msIR = ms;
+   if( _num == saveNum )return;
+   SetSemaphoreIR(true);
+   saveNum = _num;
+   uint8_t _ir_cmd[] = {0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19};
+
+   if( _num == 0 ){
+      _num = MAX_NUM_PARKING_SPACE+1;
+   }
+   Serial.printf("!!!! Send IR %d\n",_num);
+   numIR = _num;
+   if( _num < 10 ){
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[_num]),32,0);
+//       IrSender.sendNEC(0x00, _ir_cmd[_num], 0);
+   }
+   else if( _num < 100){
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[_num/10]),32,0);
+       delay(100);
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[_num%10]),32,0);
+   }      
+   else  {
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[_num/100]),32,0);
+       delay(100);
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[(_num/10)%10]),32,0);
+       delay(100);
+       irsend1.sendNEC(irsend1.encodeNEC(0x00, _ir_cmd[_num%10]),32,0);
+     
+   }       
+   SetSemaphoreIR(false);
+}
+
+
+void SetSemaphoreIR(bool flag){
+   if( flag ){
+//      Serial.println(F("!!!! Wait IR Semaphore"));
+      xSemaphoreTake( SemaphoreIR, portMAX_DELAY );
+//      Serial.println(F("!!!! Set IR Semaphore ON"));  
+   }
+   else {
+//      Serial.println(F("!!!! Set IR Semaphore OFF"));
+      xSemaphoreGive( SemaphoreIR ); 
+      
+   }
+}
+

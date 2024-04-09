@@ -10,7 +10,7 @@ bool is_wait_request = false;
 uint16_t idCount = 1;
 uint32_t idCount32 = 1;
 
-int saveNum = -1;
+
 
 
 #if defined(SCAN_ALL_NODES)
@@ -20,7 +20,6 @@ bool     isAllNodesChange  = true;
 #endif
 //bool isCountNodeFreeChange = false;
 
-IRsend irsend(PIN_IR_SEND);
 /**
  * Параллельная задача обработки LoRa сообщений
  * 
@@ -52,7 +51,7 @@ void taskLoRa( void *pvParameters ){
    char _node[16];
    Radio.Rx(0);
 // Активация ИК передатчика
-   irsend.begin(); 
+//   irsend.begin(); 
    SendIR(0);
    vTaskDelay(3000);
    JNodes.StatusAll();
@@ -72,6 +71,7 @@ void taskLoRa( void *pvParameters ){
        Radio.IrqProcess();
 
        if( loopLora(_node) ){
+          SetSemaphoreIR(true);
           myLora.PrintRX();
           switch( myLora.StateRX ){
              case NSRX_ERROR_CRC :  
@@ -91,6 +91,7 @@ void taskLoRa( void *pvParameters ){
                 else is_wait_request = sendJsonToLora(_node,myLora.isRX_V3);
                 break; 
           }
+          SetSemaphoreIR(false);
        }
    
        uint32_t _ms = millis();
@@ -381,33 +382,3 @@ bool checkWhiteList(char *_node){
 
 }
 
-void SendIR(uint16_t _num){
-   if( _num == saveNum )return;
-   saveNum = _num;
-   uint8_t _ir_cmd[] = {0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19};
-
-   if( _num == 0 ){
-      _num = MAX_NUM_PARKING_SPACE+1;
-   }
-   Serial.printf("!!!! Send IR %d\n",_num);
-   if( _num < 10 ){
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[_num]),32,0);
-//       IrSender.sendNEC(0x00, _ir_cmd[_num], 0);
-   }
-   else if( _num < 100){
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[_num/10]),32,0);
-       delay(100);
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[_num%10]),32,0);
-   }      
-   else  {
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[_num/100]),32,0);
-       delay(100);
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[(_num/10)%10]),32,0);
-       delay(100);
-       irsend.sendNEC(irsend.encodeNEC(0x00, _ir_cmd[_num%10]),32,0);
-     
-   }
-  
-      
- 
-}

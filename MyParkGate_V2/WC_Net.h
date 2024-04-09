@@ -5,6 +5,8 @@
 #include <NTPClient.h>    //https://github.com/arduino-libraries/NTPClient
 #ifdef ETHERNET_W5500
 //extern SPIClass *SPI1;
+#include <IRremoteESP8266.h> //https://github.com/crankyoldgit/IRremoteESP8266
+#include <IRsend.h>    
 
 #include "src/Ethernet1/EthernetUdp.h"
 //#include <EthernetUdp.h>
